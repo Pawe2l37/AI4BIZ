@@ -3,238 +3,245 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.datasets import load_breast_cancer
-from sklearn.model_selection import train_test_split, learning_curve
-from sklearn.linear_model import LinearRegression, LogisticRegression
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, classification_report, confusion_matrix
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.preprocessing import StandardScaler
 import os
 
 # Import funkcji wizualizacyjnych
 from visualize import (
-    plot_regression_results,
-    plot_feature_importance,
     plot_confusion_matrix,
-    plot_learning_curves
+    plot_feature_importance,
+    plot_learning_curves,
+    plot_roc_curve,
+    plot_precision_recall_curve,
+    plot_decision_regions
 )
 
 def main():
-    # Tworzenie katalogu na wykresy, jeśli nie istnieje
-    os.makedirs('wykresy', exist_ok=True)
+    print("========== PROSTY MODEL KLASYFIKACJI ==========")
     
-    print("========== PROJEKT UCZENIA MASZYNOWEGO ==========")
-    
-    # ========== Model regresji ==========
-    print("\n--- MODEL REGRESJI ---")
-    # Wczytanie danych
-    try:
-        from sklearn.datasets import fetch_california_housing
-        print("Używanie zbioru California Housing")
-        housing = fetch_california_housing()
-        X_reg = housing.data
-        y_reg = housing.target
-        feature_names_reg = housing.feature_names
-    except:
-        # Fallback - symulujemy dane jeśli zbiór niedostępny
-        print("Generowanie syntetycznych danych regresji")
-        np.random.seed(42)
-        X_reg = np.random.rand(500, 5)
-        y_reg = 2 + 3*X_reg[:, 0] + 4*X_reg[:, 1] - 2*X_reg[:, 2] + np.random.randn(500)*0.5
-        feature_names_reg = [f'cecha_{i}' for i in range(X_reg.shape[1])]
-    
-    # Podział na zbiory treningowy i testowy
-    X_train_reg, X_test_reg, y_train_reg, y_test_reg = train_test_split(
-        X_reg, y_reg, test_size=0.2, random_state=42
-    )
-    
-    # Standaryzacja danych
-    scaler_reg = StandardScaler()
-    X_train_reg_scaled = scaler_reg.fit_transform(X_train_reg)
-    X_test_reg_scaled = scaler_reg.transform(X_test_reg)
-    
-    # Model regresji liniowej
-    print("\nModel regresji liniowej:")
-    lr = LinearRegression()
-    lr.fit(X_train_reg_scaled, y_train_reg)
-    
-    # Predykcje
-    y_pred_lr = lr.predict(X_test_reg_scaled)
-    
-    # Ocena modelu
-    mse_lr = mean_squared_error(y_test_reg, y_pred_lr)
-    r2_lr = r2_score(y_test_reg, y_pred_lr)
-    
-    print(f"Mean Squared Error: {mse_lr:.4f}")
-    print(f"R² Score: {r2_lr:.4f}")
-    
-    # Wydruk wag modelu
-    print("\nWagi modelu regresji liniowej:")
-    for feat, coef in zip(feature_names_reg, lr.coef_):
-        print(f"{feat}: {coef:.4f}")
-    
-    # Wizualizacja wyników regresji liniowej
-    plot_regression_results(
-        y_test_reg, 
-        y_pred_lr, 
-        title='Regresja Liniowa: Porównanie wartości rzeczywistych i przewidywanych'
-    )
-    
-    # Model RandomForest dla regresji
-    print("\nModel Random Forest dla regresji:")
-    rf_reg = RandomForestRegressor(n_estimators=100, random_state=42)
-    rf_reg.fit(X_train_reg_scaled, y_train_reg)
-    
-    # Predykcje
-    y_pred_rf_reg = rf_reg.predict(X_test_reg_scaled)
-    
-    # Ocena modelu
-    mse_rf_reg = mean_squared_error(y_test_reg, y_pred_rf_reg)
-    r2_rf_reg = r2_score(y_test_reg, y_pred_rf_reg)
-    
-    print(f"Mean Squared Error: {mse_rf_reg:.4f}")
-    print(f"R² Score: {r2_rf_reg:.4f}")
-    
-    # Ważność cech
-    print("\nWażność cech w modelu Random Forest:")
-    for feat, imp in zip(feature_names_reg, rf_reg.feature_importances_):
-        print(f"{feat}: {imp:.4f}")
-    
-    # Wizualizacja ważności cech dla modelu RandomForest regresji
-    plot_feature_importance(
-        np.array(feature_names_reg), 
-        rf_reg.feature_importances_,
-        title='Ważność cech w modelu Random Forest dla regresji'
-    )
-    
-    # Krzywe uczenia dla regresji
-    train_sizes_reg, train_scores_reg, test_scores_reg = learning_curve(
-        LinearRegression(), 
-        X_train_reg_scaled, 
-        y_train_reg,
-        train_sizes=np.linspace(0.1, 1.0, 5),
-        cv=5,
-        scoring='neg_mean_squared_error'
-    )
-    
-    # Wizualizacja krzywych uczenia dla regresji
-    plot_learning_curves(
-        -train_scores_reg,  # Negujemy, bo używamy neg_mean_squared_error
-        -test_scores_reg, 
-        train_sizes_reg,
-        metric_name='Mean Squared Error'
-    )
-    
-    # ========== Model klasyfikacji ==========
-    print("\n\n--- MODEL KLASYFIKACJI ---")
-    # Wczytanie danych
+    # Wczytanie danych o raku piersi
     print("Używanie zbioru Breast Cancer Wisconsin")
     cancer = load_breast_cancer()
-    X_clf = cancer.data
-    y_clf = cancer.target
-    feature_names_clf = cancer.feature_names
+    X = cancer.data
+    y = cancer.target
+    feature_names = cancer.feature_names
+    
+    # Informacje o zbiorze danych
+    print(f"\nInformacje o zbiorze danych:")
+    print(f"Liczba próbek: {X.shape[0]}")
+    print(f"Liczba cech: {X.shape[1]}")
+    print(f"Klasy: {cancer.target_names}")
+    print(f"Rozkład klas: {np.bincount(y)}")
     
     # Podział na zbiory treningowy i testowy
-    X_train_clf, X_test_clf, y_train_clf, y_test_clf = train_test_split(
-        X_clf, y_clf, test_size=0.2, random_state=42
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
     )
     
+    print(f"\nRozmiar zbioru treningowego: {X_train.shape}")
+    print(f"Rozmiar zbioru testowego: {X_test.shape}")
+    
     # Standaryzacja danych
-    scaler_clf = StandardScaler()
-    X_train_clf_scaled = scaler_clf.fit_transform(X_train_clf)
-    X_test_clf_scaled = scaler_clf.transform(X_test_clf)
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
     
     # Model regresji logistycznej
-    print("\nModel regresji logistycznej:")
+    print("\n--- MODEL REGRESJI LOGISTYCZNEJ ---")
     logreg = LogisticRegression(max_iter=1000, random_state=42)
-    logreg.fit(X_train_clf_scaled, y_train_clf)
+    logreg.fit(X_train_scaled, y_train)
     
     # Predykcje
-    y_pred_logreg = logreg.predict(X_test_clf_scaled)
+    y_pred_logreg = logreg.predict(X_test_scaled)
+    y_prob_logreg = logreg.predict_proba(X_test_scaled)[:, 1]  # prawdopodobieństwa dla klasy pozytywnej
     
     # Ocena modelu
-    accuracy_logreg = accuracy_score(y_test_clf, y_pred_logreg)
+    accuracy_logreg = accuracy_score(y_test, y_pred_logreg)
     
-    print(f"Accuracy: {accuracy_logreg:.4f}")
+    print(f"Dokładność (Accuracy): {accuracy_logreg:.4f}")
     print("\nRaport klasyfikacji:")
-    print(classification_report(y_test_clf, y_pred_logreg))
+    print(classification_report(y_test, y_pred_logreg, target_names=['złośliwy', 'łagodny']))
+    
+    # Wydruk macierzy pomyłek w formie tekstowej
+    cm = confusion_matrix(y_test, y_pred_logreg)
+    print("\nMacierz pomyłek:")
+    print("             Przewidziane")
+    print("             Złośliwy  Łagodny")
+    print(f"Rzeczywiste Złośliwy  {cm[0,0]:8d} {cm[0,1]:8d}")
+    print(f"           Łagodny    {cm[1,0]:8d} {cm[1,1]:8d}")
     
     # Wizualizacja macierzy pomyłek dla regresji logistycznej
     plot_confusion_matrix(
-        y_test_clf, 
-        y_pred_logreg,
+        y_test, 
+        y_pred_logreg, 
         class_names=['złośliwy', 'łagodny'],
-        title='Macierz pomyłek dla regresji logistycznej'
+        title='Macierz pomyłek - Regresja logistyczna'
     )
     
-    # Model RandomForest dla klasyfikacji
-    print("\nModel Random Forest dla klasyfikacji:")
-    rf_clf = RandomForestClassifier(n_estimators=100, random_state=42)
-    rf_clf.fit(X_train_clf_scaled, y_train_clf)
+    # Wizualizacja krzywej ROC dla regresji logistycznej
+    plot_roc_curve(
+        y_test, 
+        y_prob_logreg,
+        title='Krzywa ROC - Regresja logistyczna'
+    )
+    
+    # Wizualizacja krzywej Precision-Recall dla regresji logistycznej
+    plot_precision_recall_curve(
+        y_test, 
+        y_prob_logreg,
+        title='Krzywa Precision-Recall - Regresja logistyczna'
+    )
+    
+    # Wyznaczanie krzywych uczenia dla regresji logistycznej
+    plot_learning_curves(
+        LogisticRegression(max_iter=1000, random_state=42),
+        X_train_scaled, 
+        y_train,
+        title='Krzywe uczenia - Regresja logistyczna'
+    )
+    
+    # Model Random Forest
+    print("\n--- MODEL RANDOM FOREST ---")
+    rf = RandomForestClassifier(n_estimators=100, random_state=42)
+    rf.fit(X_train_scaled, y_train)
     
     # Predykcje
-    y_pred_rf_clf = rf_clf.predict(X_test_clf_scaled)
+    y_pred_rf = rf.predict(X_test_scaled)
+    y_prob_rf = rf.predict_proba(X_test_scaled)[:, 1]
     
     # Ocena modelu
-    accuracy_rf_clf = accuracy_score(y_test_clf, y_pred_rf_clf)
+    accuracy_rf = accuracy_score(y_test, y_pred_rf)
     
-    print(f"Accuracy: {accuracy_rf_clf:.4f}")
+    print(f"Dokładność (Accuracy): {accuracy_rf:.4f}")
     print("\nRaport klasyfikacji:")
-    print(classification_report(y_test_clf, y_pred_rf_clf))
+    print(classification_report(y_test, y_pred_rf, target_names=['złośliwy', 'łagodny']))
+    
+    # Wydruk macierzy pomyłek w formie tekstowej
+    cm = confusion_matrix(y_test, y_pred_rf)
+    print("\nMacierz pomyłek:")
+    print("             Przewidziane")
+    print("             Złośliwy  Łagodny")
+    print(f"Rzeczywiste Złośliwy  {cm[0,0]:8d} {cm[0,1]:8d}")
+    print(f"           Łagodny    {cm[1,0]:8d} {cm[1,1]:8d}")
     
     # Wizualizacja macierzy pomyłek dla Random Forest
     plot_confusion_matrix(
-        y_test_clf, 
-        y_pred_rf_clf,
+        y_test, 
+        y_pred_rf, 
         class_names=['złośliwy', 'łagodny'],
-        title='Macierz pomyłek dla modelu Random Forest'
+        title='Macierz pomyłek - Random Forest'
     )
     
-    # Ważność cech
-    print("\nWażność cech w modelu Random Forest:")
-    for feat, imp in zip(feature_names_clf, rf_clf.feature_importances_):
-        print(f"{feat}: {imp:.4f}")
-        
-    # Wizualizacja ważności cech dla modelu RandomForest klasyfikacji
+    # Wizualizacja krzywej ROC dla Random Forest
+    plot_roc_curve(
+        y_test, 
+        y_prob_rf,
+        title='Krzywa ROC - Random Forest'
+    )
+    
+    # Wizualizacja krzywej Precision-Recall dla Random Forest
+    plot_precision_recall_curve(
+        y_test, 
+        y_prob_rf,
+        title='Krzywa Precision-Recall - Random Forest'
+    )
+    
+    # Ważność cech dla Random Forest
+    feature_importances = rf.feature_importances_
+    indices = np.argsort(feature_importances)[::-1]
+    
+    # Top 10 najważniejszych cech dla modelu Random Forest
+    print("\nTop 10 najważniejszych cech dla modelu Random Forest:")
+    for i in range(min(10, X.shape[1])):
+        print(f"{i+1}. {feature_names[indices[i]]}: {feature_importances[indices[i]]:.4f}")
+    
+    # Wizualizacja ważności cech
     plot_feature_importance(
-        np.array(feature_names_clf), 
-        rf_clf.feature_importances_,
-        title='Ważność cech w modelu Random Forest dla klasyfikacji'
+        feature_names, 
+        feature_importances,
+        title='Ważność cech - Random Forest',
+        top_n=15
     )
     
-    # Krzywe uczenia dla klasyfikacji
-    train_sizes_clf, train_scores_clf, test_scores_clf = learning_curve(
-        LogisticRegression(max_iter=1000, random_state=42), 
-        X_train_clf_scaled, 
-        y_train_clf,
-        train_sizes=np.linspace(0.1, 1.0, 5),
-        cv=5,
-        scoring='accuracy'
-    )
-    
-    # Wizualizacja krzywych uczenia dla klasyfikacji
+    # Wizualizacja krzywych uczenia dla Random Forest
     plot_learning_curves(
-        train_scores_clf, 
-        test_scores_clf, 
-        train_sizes_clf,
-        metric_name='Accuracy'
+        RandomForestClassifier(n_estimators=100, random_state=42),
+        X_train_scaled, 
+        y_train,
+        title='Krzywe uczenia - Random Forest'
     )
+    
+    # Wizualizacja regionów decyzyjnych dla dwóch najważniejszych cech
+    try:
+        plot_decision_regions(
+            X_test_scaled, 
+            y_test, 
+            rf,
+            title='Regiony decyzyjne - Random Forest',
+            feature_indices=[indices[0], indices[1]]  # Dwie najważniejsze cechy
+        )
+    except Exception as e:
+        print(f"Nie udało się utworzyć wykresu regionów decyzyjnych: {e}")
     
     # Podsumowanie wyników
     print("\n========== PODSUMOWANIE WYNIKÓW ==========")
-    print("\nRegresja:")
-    print(f"Regresja liniowa - MSE: {mse_lr:.4f}, R²: {r2_lr:.4f}")
-    print(f"Random Forest - MSE: {mse_rf_reg:.4f}, R²: {r2_rf_reg:.4f}")
+    print(f"Regresja logistyczna - Dokładność: {accuracy_logreg:.4f}")
+    print(f"Random Forest - Dokładność: {accuracy_rf:.4f}")
     
-    print("\nKlasyfikacja:")
-    print(f"Regresja logistyczna - Accuracy: {accuracy_logreg:.4f}")
-    print(f"Random Forest - Accuracy: {accuracy_rf_clf:.4f}")
+    # Interpretacja wyników
+    print("\n========== INTERPRETACJA WYNIKÓW ==========")
+    print("1. Dokładność (Accuracy) - procent poprawnie sklasyfikowanych próbek")
+    print("2. Precision - dokładność pozytywnych identyfikacji (ile z przewidzianych jako łagodne faktycznie było łagodnych)")
+    print("3. Recall - kompletność pozytywnych identyfikacji (jak dużo łagodnych próbek model prawidłowo zidentyfikował)")
+    print("4. F1-score - średnia harmoniczna precision i recall")
+    print("5. Macierz pomyłek - zestawienie przewidzianych vs. rzeczywistych klas")
+    print("   - Wiersze: klasa rzeczywista")
+    print("   - Kolumny: klasa przewidziana")
+    print("6. Krzywa ROC - wykres True Positive Rate vs. False Positive Rate")
+    print("   - AUC - pole pod krzywą ROC, wartość bliższa 1 oznacza lepszy model")
+    print("7. Krzywa Precision-Recall - wykres Precision vs. Recall")
+    print("8. Ważność cech - wskazuje, które cechy mają największy wpływ na decyzje modelu")
     
     print("\n========== PROPOZYCJE ULEPSZEŃ ==========")
-    print("1. Hiperstrojenie parametrów modeli (np. GridSearchCV)")
-    print("2. Wypróbowanie innych modeli (SVM, XGBoost, sieci neuronowe)")
-    print("3. Inżynieria cech i selekcja najważniejszych zmiennych")
-    print("4. Zastosowanie technik redukcji wymiarowości (np. PCA)")
-    print("5. Walidacja krzyżowa zamiast pojedynczego podziału na zbiory")
+    print("1. Hiperstrojenie parametrów modeli:")
+    print("   - Zastosowanie GridSearchCV lub RandomizedSearchCV do znalezienia optymalnych parametrów")
+    print("   - Dla regresji logistycznej: parametr C (regularyzacja), solver, penalty")
+    print("   - Dla Random Forest: n_estimators, max_depth, min_samples_split, min_samples_leaf")
+    
+    print("\n2. Wypróbowanie innych modeli:")
+    print("   - SVM (Support Vector Machine) - dobrze radzi sobie z danymi o wysokiej wymiarowości")
+    print("   - XGBoost - implementacja gradient boosting, często osiąga najlepsze wyniki")
+    print("   - Sieci neuronowe - dla złożonych zależności w danych")
+    print("   - Naive Bayes - prosty model prawdopodobieństwa, często skuteczny dla mniejszych zbiorów danych")
+    print("   - KNN (k-Nearest Neighbors) - klasyfikacja na podstawie podobieństwa do punktów treningowych")
+    
+    print("\n3. Inżynieria i selekcja cech:")
+    print("   - Redukcja wymiarowości: PCA, t-SNE, UMAP")
+    print("   - Wybór cech: SelectKBest, RFE (Recursive Feature Elimination)")
+    print("   - Transformacje nieliniowe cech")
+    print("   - Tworzenie nowych cech na podstawie domenowej znajomości problemu")
+    
+    print("\n4. Techniki uczenia:")
+    print("   - Walidacja krzyżowa zamiast pojedynczego podziału")
+    print("   - Stratyfikacja - zachowanie proporcji klas w zbiorach")
+    print("   - Obsługa niezbalansowanych danych: SMOTE, upsampling, downsampling")
+    print("   - Zespoły modeli: stacking, blending")
+    
+    print("\n5. Interpretacja modelu:")
+    print("   - SHAP (SHapley Additive exPlanations) - dla wyjaśnienia decyzji modelu dla konkretnych przykładów")
+    print("   - LIME (Local Interpretable Model-agnostic Explanations) - lokalna interpretacja")
+    print("   - Partial Dependence Plots - wpływ zmian wartości cech na predykcje")
+    
+    print("\n6. Optymalizacja metryk:")
+    print("   - Wybór odpowiedniej metryki dla domeny: precision, recall, F1, AUC")
+    print("   - Dostosowanie progu decyzyjnego do kosztów błędów (fałszywie dodatnich vs. fałszywie ujemnych)")
+    print("   - Kalibracja prawdopodobieństw modelu")
 
 if __name__ == "__main__":
+    # Utworzenie katalogu na wykresy, jeśli nie istnieje
+    os.makedirs('wykresy', exist_ok=True)
     main() 
