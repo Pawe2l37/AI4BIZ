@@ -1,0 +1,99 @@
+.App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+}
+
+.card {
+  transition: transform 0.3s, box-shadow 0.3s;
+  height: 100%;
+  margin-bottom: 1rem;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-text {
+  flex: 1;
+}
+
+i.bi {
+  margin-right: 8px;
+  color: #0d6efd;
+}
+
+/* Tryb papieski */
+.papal-mode {
+  background-color: #fff9e6;
+}
+
+.papal-mode .card-papal {
+  background-color: #fff3cd;
+  border-color: #ffeeba;
+}
+
+.papal-mode .card-papal:hover {
+  box-shadow: 0 10px 20px rgba(255, 193, 7, 0.2);
+}
+
+.papal-mode .card-papal .card-title {
+  color: #856404;
+}
+
+.papal-mode .card-papal i.bi {
+  color: #f0ad4e;
+}
+
+.papal-mode .card-text {
+  color: #664d03;
+}
+
+.papal-search input:focus {
+  box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.25);
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+.App-header {
+  background-color: #282c34;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+}
+
+.App-link {
+  color: #61dafb;
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
